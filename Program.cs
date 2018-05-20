@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -72,7 +73,11 @@ namespace TrieTest {
         // file. Since it takes the first 10 matching results, it is much
         // faster for common name prefixes.
         private static string[] FindMatchingCitiesArrayScan(string filter) =>
-            cities.Where(c => c.StartsWith(filter)).Take(MATCHING_CITIES_MAX).ToArray();
+            cities.Where(c =>
+                c.StartsWith(
+                    filter, ignoreCase: true, culture: CultureInfo.InvariantCulture
+                )
+            ).Take(MATCHING_CITIES_MAX).ToArray();
 
         // More optimized O(m) approach using a trie (m = length of filter.)
         // Worst-case about 5 ms on my machine, typically runs at a
@@ -82,10 +87,11 @@ namespace TrieTest {
             var matchingNode = trieRoot;
 
             for (int i = 0; i < filter.Length; i++) {
-               var c = filter[i];
-                matchingNode = matchingNode.NextNodes[c];
-
-                if (matchingNode.Equals(default(TrieNode))) {
+                var c = filter[i];
+                if (matchingNode.NextNodes.ContainsKey(c)) {
+                    matchingNode = matchingNode.NextNodes[c];
+                }
+                else {
                     // This filter does not exist in the trie => empty
                     // result.
                     return new string[0];
@@ -134,6 +140,44 @@ namespace TrieTest {
             callback();
             var after = DateTime.Now;
             Console.WriteLine($"{name} took ${after - before}");
+        }
+
+        private static void BenchmarkArrayScanSearch() {
+            for (int i = 0; i < 10; i++) {
+                Benchmark(
+                    () => FindMatchingCitiesArrayScan("kniv"),
+                    "Search for kniv"
+                );
+
+                Benchmark(
+                    () => FindMatchingCitiesArrayScan("stock"),
+                    "Search for stock"
+                );
+
+                Benchmark(
+                    () => FindMatchingCitiesArrayScan("vanc"),
+                    "Search for vanc"
+                );
+            }
+        }
+
+        private static void BenchmarkTrieSearch() {
+            for (int i = 0; i < 10; i++) {
+                Benchmark(
+                    () => FindMatchingCitiesTrie("kniv"),
+                    "Search for kniv"
+                );
+
+                Benchmark(
+                    () => FindMatchingCitiesTrie("stock"),
+                    "Search for stock"
+                );
+
+                Benchmark(
+                    () => FindMatchingCitiesTrie("vanc"),
+                    "Search for vanc"
+                );
+            }
         }
     }
 }
